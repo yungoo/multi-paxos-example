@@ -93,7 +93,15 @@ class DedicatedMasterStrategyMixin (object):
             if self.paxos.proposal_id.number == 1:
                 self.send_accept(self.paxos.proposal_id, self.paxos.proposed_value)
             else:
-                super(DedicatedMasterStrategyMixin,self).drive_to_resolution()
+                self.prepare()
+
+            # May override the retransmit_task in ExponentialBackoffResolutionStrategyMixin.send_accept
+            # that cause to keep sending accept message, so cancel it first
+            if self.retransmit_task is not None:
+                self.retransmit_task.stop()
+
+            self.retransmit_task = task.LoopingCall( lambda : self.send_prepare(self.paxos.proposal_id) )
+            self.retransmit_task.start( self.retransmit_interval/1000.0, now=False )
         else:
             super(DedicatedMasterStrategyMixin,self).drive_to_resolution()
         
