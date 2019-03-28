@@ -36,9 +36,11 @@ class DedicatedMasterStrategyMixin (object):
     def update_lease(self, master_uid):
         self.master_uid = master_uid
 
+        # Reset master lease timer
         if self.network_uid != master_uid:
             self.start_master_lease_timer()
 
+        # Renewal owned master lease
         if master_uid == self.network_uid:
             renew_delay = (self.lease_start + self.lease_window - 1) - time.time()
             
@@ -91,10 +93,7 @@ class DedicatedMasterStrategyMixin (object):
             if self.paxos.proposal_id.number == 1:
                 self.send_accept(self.paxos.proposal_id, self.paxos.proposed_value)
             else:
-                self.paxos.prepare()
-
-            self.retransmit_task = task.LoopingCall( lambda : self.send_prepare(self.paxos.proposal_id) )
-            self.retransmit_task.start( self.retransmit_interval/1000.0, now=False )
+                super(DedicatedMasterStrategyMixin,self).drive_to_resolution()
         else:
             super(DedicatedMasterStrategyMixin,self).drive_to_resolution()
         
@@ -121,6 +120,7 @@ class DedicatedMasterStrategyMixin (object):
 
         super(DedicatedMasterStrategyMixin,self).advance_instance(new_instance_number, new_current_value)
 
+        # Bypass first stage of paxos preparing for resolution in single round trip
         if self.master_uid:
 
             master_pid = ProposalID(1,self.master_uid)
